@@ -9,8 +9,6 @@ import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 @Component
 public class ProductItemProcessor implements ItemProcessor<Product, Product> {
 
@@ -19,11 +17,27 @@ public class ProductItemProcessor implements ItemProcessor<Product, Product> {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
+    final private String Cmd =
+            """
+            SELECT
+                productsku AS "productSku",
+                loyalitydata AS "loyalityData"
+            FROM loyality_data
+            WHERE productsku = ?
+            """;
     @Override
 	public Product process(final Product product) {
-      //todo
+        var sku = product.productSku();
+        var loyalties = jdbcTemplate.query(
+                Cmd,
+                new DataClassRowMapper<>(Loyality.class),
+                sku
+        );
 
-		return //todo
+        var loyaltyData = loyalties.isEmpty() ? null : loyalties.get(0).loyalityData();
+        log.info("Product {} was processed", sku);
+
+        return new Product(product.productId(), sku, product.productName(), product.productAmount(), loyaltyData);
 	}
 
 }
