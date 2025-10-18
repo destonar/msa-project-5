@@ -1,0 +1,15 @@
+@startuml C4_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+ContainerDb(db, "БД прайс-листов", "PostgreSQL")
+ContainerDb(storage, "Объектное хранилище", "S3")
+
+Container(cron_job, "Экспортер", "CronJob")
+
+System_Ext(observability_stack, "Система мониторинга и логирования", "Prometheus, Grafana + ELK")
+
+Rel(db, cron_job, "Получает данные", "SQL")
+Rel(cron_job, storage, "Сохраняет результат", "HTTP")
+Rel(cron_job, observability_stack, "Передача метрик и логов")
+
+@enduml

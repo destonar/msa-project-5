@@ -23,8 +23,10 @@ public class JobCompletionNotificationListener implements JobExecutionListener {
 
 	@Override
 	public void afterJob(JobExecution jobExecution) {
-		if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
-			// todo
+		if (jobExecution.getStatus() != BatchStatus.COMPLETED) {
+            return;
 		}
-	}
+
+        log.info("Batch processing was completed");
+    }
 }

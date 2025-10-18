@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: exporter-job
+  namespace: sprint4-task3
+spec:
+  schedule: "0 6 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          securityContext:
+            runAsUser: 0
+          containers:
+          - name: exporter-job
+            image: task3-exporter:latest
+            imagePullPolicy: Never
+            env:
+              - name: CONNECTION_STRING
+                value: "Host=postgres-datasource;Database=source_db;Username=postgres;Password=postgres"
+              - name: TARGET_FOLDER
+                value: /opt/exporter/result/
+              - name: TABLE_NAMES
+                value: shipment shipment_events
+            volumeMounts:
+              - name: export-results
+                mountPath: /opt/exporter/result/
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "256Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+          restartPolicy: OnFailure
+          volumes:
+            - name: export-results
+              hostPath:
+                path: /mnt/exp_res
+                type: DirectoryOrCreate

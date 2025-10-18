@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-sample-data
+  namespace: sprint4-task3
+data:
+  init.sql: |
+    begin;
+
+    create table if not exists shipment(
+      id bigserial primary key,
+      orderId int,
+      address TEXT,
+      state TEXT,
+      created timestamptz default now()
+    );
+
+    create table if not exists shipment_events(
+      id bigserial primary key,
+      shipmentId bigint,
+      state TEXT,
+      occurred_on timestamptz default now()
+    );
+
+    insert into shipment(orderId, address, state)
+    select random(), 'test', 'shipped'
+    from generate_series(1, 1000);
+
+    insert into shipment_events(shipmentId, state)
+    select random(), 'in progress'
+    from generate_series(1, 1000);
+
+    commit;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-datasource
+  namespace: sprint4-task3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: source_db
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init
+          configMap:
+            name: init-sample-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-datasource
+  namespace: sprint4-task3
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+

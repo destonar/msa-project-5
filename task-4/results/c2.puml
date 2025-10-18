@@ -1,0 +1,26 @@
+@startuml C4_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(employee, "Сотрудник склада")
+System_Boundary(backend, "Backend") {
+  Container(frontend, "Web UI", "JS, Angular", "Приложение для пользователя, Web-интерфейс")
+  Container(monolith, "Монолит", "Java 11 / WildFly", "Логика обработки отчетов")
+  ContainerDb(result_db, "БД номенклатуры", "PostgreSQL", "Актуальные данные о наличии товаров на складе")
+  ContainerDb(goods_db, "БД номенклатуры", "PostgreSQL", "Данные о характеристиках товаров, промо-акции и т.д.")
+  ContainerDb(gcs, "Файловое хранилище", "Google Cloud Storage", "CSV файлы")
+  Container(etl, "ETL сервис", "Spring Batch", "Чтение CSV файлов и заполнение таблиц результатов, формирование отчетов")
+}
+
+System(obs, "Observability", "Prometheus, Grafana, ELK, OTel", "Метрики/Логи/Трейсы")
+
+Rel(employee, frontend, "Использует")
+Rel(frontend, monolith, "Отправляет запросы", "HTTP")
+Rel(monolith, gcs, "Загрузка файлов")
+Rel(monolith, etl, "Запуск пайплайна")
+
+Rel(etl, gcs, "Чтение CSV")
+Rel(etl, goods_db, "Чтение дополнительных данных о товарах")
+Rel(etl, result_db, "Запись результатов")
+Rel(etl, obs, "Метрики, логи, трейсы")
+
+@enduml
