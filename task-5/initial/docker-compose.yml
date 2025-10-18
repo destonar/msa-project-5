@@ -11,6 +11,8 @@ services:
       - POSTGRES_DB=$POSTGRESDB_DATABASE
     ports:
       - $POSTGRESDB_LOCAL_PORT:$POSTGRESDB_DOCKER_PORT
+    networks:
+      - batching
 
   elasticsearch:
     image: 'docker.elastic.co/elasticsearch/elasticsearch:7.17.28'
@@ -26,6 +28,8 @@ services:
       - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
     healthcheck:
       test: 'curl -f http://localhost:9200 || exit 1'
+    networks:
+      - batching
 
   logstash:
     image: 'docker.elastic.co/logstash/logstash:7.17.28'
@@ -39,6 +43,8 @@ services:
       - 'elasticsearch'
     healthcheck:
       test: 'curl -f http://localhost:9600 || exit 1'
+    networks:
+      - batching
 
   kibana:
     image: 'docker.elastic.co/kibana/kibana:7.17.28'
@@ -52,6 +58,8 @@ services:
       - 'elasticsearch'
     healthcheck:
       test: 'curl -f http://localhost:5601 || exit 1'
+    networks:
+      - batching
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:7.17.28
@@ -66,6 +74,8 @@ services:
     depends_on:
       - 'elasticsearch'
       - 'logstash'
+    networks:
+      - batching
 
   prometheus:
     image: 'prom/prometheus:v3.4.0'
@@ -77,6 +87,38 @@ services:
       - '9090:9090'
     healthcheck:
       test: [ "CMD", "nc", "-z", "localhost", "9090" ]
+    networks:
+      - batching
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otel-collector
+    hostname: otel-collector
+    command: [ "--config=/etc/otel-collector.yaml" ]
+    volumes:
+      - ./otel-collector/otel-collector.yaml:/etc/otel-collector.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "9201:9201"
+      - "8889:8889"
+    networks:
+      - batching
+
+  tempo:
+    image: grafana/tempo:main-e607202
+    container_name: tempo
+    hostname: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "3200"
+      - "4317"
+    depends_on:
+      - otel-collector
+    networks:
+      - batching
 
   grafana:
     image: 'grafana/grafana:12.0.1'
@@ -92,6 +134,8 @@ services:
       - 'prometheus'
     healthcheck:
       test: [ "CMD", "nc", "-z", "localhost", "3000" ]
+    networks:
+      - batching
 
   app:
     depends_on:
@@ -99,9 +143,25 @@ services:
       - filebeat
       - grafana
     image: batch-processing
+    container_name: app
+    hostname: app
     ports:
       - '8080:8080'
     build:
       context: .
       dockerfile: ./Dockerfile
     restart: no
+    networks:
+      - batching
+
+  job-runner:
+    depends_on:
+      - app
+    image: job-runner:latest
+    restart: no
+    networks:
+      - batching
+
+networks:
+  batching:
+    driver: bridge
